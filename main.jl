@@ -19,6 +19,7 @@ model = Model(SCIP.Optimizer)
 # Define the constraints
 @constraint(model, [c in cubes, s in slots], 8 * cs[c, s] == sum(pcs[p, c, s] for p in players))
 @constraint(model, [p in players, s in slots], sum(pcs[p, c, s] for c in cubes) == 1)
+@constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
 
 # Define the objective
 @objective(model, Max, sum(pcs[p, c, s] * score[p, c] for p in players, c in cubes, s in slots))
@@ -39,7 +40,7 @@ for slot in slots
     total_cubes = 0
     for cube in cubes
         if round(value(cs[cube, slot])) == 1
-            println("slot $slot Cube $cube")
+            println("\nslot $slot Cube $cube")
             total = 0
             for player in players
                 if round(value(pcs[player, cube, slot])) == 1
@@ -52,4 +53,13 @@ for slot in slots
         end
     end
     @assert total_cubes == length(players) / 8
+end
+
+for cube in cubes
+    println("\nCube $cube")
+    for slot in slots
+        if round(value(cs[cube, slot])) == 1
+            println("Slot $slot")
+        end
+    end
 end
