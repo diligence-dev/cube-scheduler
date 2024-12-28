@@ -51,5 +51,5 @@ for slot in slots
             total_cubes += 1
         end
     end
-    @assert total_cubes == 6
+    @assert total_cubes == length(players) / 8
 end
