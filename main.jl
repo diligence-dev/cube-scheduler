@@ -35,18 +35,14 @@ else
     println("No optimal solution found")
 end
 
-pn = ["p$i" for i in 1:48]
-sn = ["A", "B", "C"]
-cn = ["c$i" for i in 1:20]
-
 for slot in slots
+    total_cubes = 0
     for cube in cubes
-        total_cubes = 0
-        if value(cs[cube, slot]) == 1
+        if round(value(cs[cube, slot])) == 1
             println("slot $slot Cube $cube")
             total = 0
             for player in players
-                if value(pcs[player, cube, slot]) == 1
+                if round(value(pcs[player, cube, slot])) == 1
                     println("Player $player")
                     total += 1
                 end
@@ -54,6 +50,6 @@ for slot in slots
             @assert total == 8
             total_cubes += 1
         end
-        @assert total_cubes == 6
     end
+    @assert total_cubes == 6
 end
