@@ -5,7 +5,7 @@ using SCIP
 
 rank_to_score = [100, 70, 50, 10, 5]
 
-player_mails = readlines("mails")[1:48]
+player_mails = readlines("mails")
 
 preferences = CSV.read("preferences.csv", DataFrame)
 preferences = filter(row -> row[2] in player_mails, preferences)
@@ -55,11 +55,15 @@ end
 model = Model(SCIP.Optimizer)
 
 # Define the variables
-@variable(model, cs[c in cubes, s in slots], Bin)
 @variable(model, pcs[p in players, c in cubes, s in slots], Bin)
+@variable(model, is_zero[c in cubes, s in slots], Bin)
+@variable(model, is_six[c in cubes, s in slots], Bin)
+@variable(model, is_eight[c in cubes, s in slots], Bin)
+@variable(model, is_ten[c in cubes, s in slots], Bin)
 
 # Define the constraints
-@constraint(model, [c in cubes, s in slots], 8 * cs[c, s] == sum(pcs[p, c, s] for p in players))
+@constraint(model, [c in cubes, s in slots], is_zero[c, s] + is_six[c, s] + is_eight[c, s] + is_ten[c, s] == 1)
+@constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in players) == 0 * is_zero[c, s] + 6 * is_six[c, s] + 8 * is_eight[c, s] + 10 * is_ten[c, s])
 @constraint(model, [p in players, s in slots], sum(pcs[p, c, s] for c in cubes) == 1)
 @constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
 
@@ -68,7 +72,10 @@ model = Model(SCIP.Optimizer)
 # @constraint(model, [c in cubes, s in slots], pcs[HEIKE, c, s] + pcs[JOS, c, s] <= 1)
 
 # Define the objective
-@objective(model, Max, sum(pcs[p, c, s] * score[p, c] for p in players, c in cubes, s in slots))
+@objective(model, Max,
+           sum(pcs[p, c, s] * score[p, c] for p in players, c in cubes, s in slots)
+           - 500 * sum(is_ten[c, s] for c in cubes, s in slots)
+           - 1000 * sum(is_six[c, s] for c in cubes, s in slots))
 
 # Solve the model
 optimize!(model)
@@ -77,20 +84,21 @@ optimize!(model)
 for slot in slots
     total_cubes = 0
     for cube in cubes
-        if round(value(cs[cube, slot])) == 1
-            println("\nslot $slot Cube ", cube_names[cube])
-            total = 0
-            for player in players
-                if round(value(pcs[player, cube, slot])) == 1
-                    println("Player ", player_mails[player])
-                    total += 1
-                end
-            end
-            @assert total == 8
-            total_cubes += 1
+        if round(value(is_zero[cube, slot])) == 1
+            continue
         end
+        println("\nslot $slot Cube ", cube_names[cube])
+        total = 0
+        for player in players
+            if round(value(pcs[player, cube, slot])) == 1
+                println("Player ", player_mails[player])
+                total += 1
+            end
+        end
+        @assert total in [6, 8, 10]
+        println("total = $total")
+        total_cubes += 1
     end
-    @assert total_cubes == length(players) / 8
 end
 
 if termination_status(model) != MOI.OPTIMAL
