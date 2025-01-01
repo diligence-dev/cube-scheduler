@@ -5,12 +5,10 @@ using SCIP
 
 rank_to_score = [100, 70, 50, 10, 5]
 
-# read in preferences.csv as dataframe
-preferences = CSV.read("preferences.csv", DataFrame)
-preferences = preferences[1:16, :]
-
-
 player_mails = readlines("mails")[1:48]
+
+preferences = CSV.read("preferences.csv", DataFrame)
+preferences = filter(row -> row[2] in player_mails, preferences)
 
 cube_names = filter(.!ismissing, unique([preferences[!, 3];
                      preferences[!, 4];
@@ -38,10 +36,6 @@ score = zeros(length(players), length(cubes))
 
 for pmail in preferences[!, 2]
     p = pid(pmail)
-    if isnothing(p)
-        println("mail $pmail is not in list")
-        continue
-    end
     picks = [preferences[preferences[!, 2] .== player_mails[p], i][1] for i in 3:7]
     unique!(picks)
     filter!(x -> !ismissing(x), picks)
@@ -99,8 +93,12 @@ for slot in slots
     @assert total_cubes == length(players) / 8
 end
 
-if termination_status(model) == MOI.OPTIMAL
-    println("\nOptimal solution found, Objective value: ", objective_value(model))
-else
-    println("No optimal solution found")
+if termination_status(model) != MOI.OPTIMAL
+    throw("No optimal solution found")
 end
+println("\nObjective value: ", objective_value(model))
+println("Objective value per player (max possible: ",
+        sum(rank_to_score[1:length(slots)]), "): ",
+        objective_value(model) / nrow(preferences))
+println("Objective value relative: ",
+        objective_value(model) / nrow(preferences) / sum(rank_to_score[1:length(slots)]))
