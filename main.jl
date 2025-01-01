@@ -9,8 +9,9 @@ rank_to_score = [100, 70, 50, 10, 5]
 preferences = CSV.read("preferences.csv", DataFrame)
 preferences = preferences[1:16, :]
 
-player_mails = unique(preferences[!, 2])
-# TODO fill with players who did not fill survey
+
+player_mails = readlines("mails")[1:48]
+
 cube_names = filter(.!ismissing, unique([preferences[!, 3];
                      preferences[!, 4];
                      preferences[!, 5];
@@ -37,6 +38,10 @@ score = zeros(length(players), length(cubes))
 
 for pmail in preferences[!, 2]
     p = pid(pmail)
+    if isnothing(p)
+        println("mail $pmail is not in list")
+        continue
+    end
     picks = [preferences[preferences[!, 2] .== player_mails[p], i][1] for i in 3:7]
     unique!(picks)
     filter!(x -> !ismissing(x), picks)
@@ -95,8 +100,7 @@ for slot in slots
 end
 
 if termination_status(model) == MOI.OPTIMAL
-    println("Optimal solution found")
-    println("Objective value: ", objective_value(model))
+    println("\nOptimal solution found, Objective value: ", objective_value(model))
 else
     println("No optimal solution found")
 end
