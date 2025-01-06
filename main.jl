@@ -4,11 +4,25 @@ using JuMP
 using SCIP
 
 rank_to_score = [100, 70, 50, 10, 5]
+special_player_1 = 26
+special_player_2 = 27
 
-player_mails = readlines("mails")
+player_mails = lowercase.(readlines("mails"))
+@assert player_mails[special_player_1] == player_mails[special_player_2]
+player_mails[special_player_1] = "special_player_1"
+@assert player_mails == unique(player_mails)
 
 preferences = CSV.read("preferences.csv", DataFrame)
-preferences = filter(row -> row[2] in player_mails, preferences)
+preferences[!, 2] = lowercase.(preferences[!, 2])
+
+preferences = preferences[[1:nrow(preferences); [findfirst(preferences[!, 2] .== player_mails[special_player_2])]], :]
+preferences[nrow(preferences), 2] = "special_player_1"
+@assert preferences[!, 2] == unique(preferences[!, 2])
+
+println("The following mails are not registered:")
+println.(filter(row -> !(row[2] in player_mails), preferences)[!, 2])
+
+filter!(row -> row[2] in player_mails, preferences)
 
 cube_names = filter(.!ismissing, unique([preferences[!, 3];
                      preferences[!, 4];
@@ -23,8 +37,6 @@ end
 function cid(cube_name)
     return findfirst(cube_name .== cube_names)
 end
-
-# TODO preferences JOS = HEIKE
 
 # Define the sets
 players = 1:length(player_mails)
@@ -56,26 +68,27 @@ model = Model(SCIP.Optimizer)
 
 # Define the variables
 @variable(model, pcs[p in players, c in cubes, s in slots], Bin)
-@variable(model, is_zero[c in cubes, s in slots], Bin)
-@variable(model, is_six[c in cubes, s in slots], Bin)
-@variable(model, is_eight[c in cubes, s in slots], Bin)
-@variable(model, is_ten[c in cubes, s in slots], Bin)
+@variable(model, zero_players[c in cubes, s in slots], Bin)
+@variable(model, six_players[c in cubes, s in slots], Bin)
+@variable(model, eight_players[c in cubes, s in slots], Bin)
+@variable(model, ten_players[c in cubes, s in slots], Bin)
 
 # Define the constraints
-@constraint(model, [c in cubes, s in slots], is_zero[c, s] + is_six[c, s] + is_eight[c, s] + is_ten[c, s] == 1)
-@constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in players) == 0 * is_zero[c, s] + 6 * is_six[c, s] + 8 * is_eight[c, s] + 10 * is_ten[c, s])
+@constraint(model, [c in cubes, s in slots], zero_players[c, s] + six_players[c, s] + eight_players[c, s] + ten_players[c, s] == 1)
+@constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in players) == 0 * zero_players[c, s] + 6 * six_players[c, s] + 8 * eight_players[c, s] + 10 * ten_players[c, s])
 @constraint(model, [p in players, s in slots], sum(pcs[p, c, s] for c in cubes) == 1)
 @constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
 
-# TODO prevent Heike and Jos from playing at the same table
+# prevent two players from ever drafting at the same table
 # TODO check how much worse total score is with this constraint
-# @constraint(model, [c in cubes, s in slots], pcs[HEIKE, c, s] + pcs[JOS, c, s] <= 1)
+@constraint(model, [c in cubes, s in slots], pcs[special_player_1, c, s] + pcs[special_player_2, c, s] <= 1)
+
 
 # Define the objective
 @objective(model, Max,
            sum(pcs[p, c, s] * score[p, c] for p in players, c in cubes, s in slots)
-           - 500 * sum(is_ten[c, s] for c in cubes, s in slots)
-           - 1000 * sum(is_six[c, s] for c in cubes, s in slots))
+           - 500 * sum(ten_players[c, s] for c in cubes, s in slots)
+           - 1000 * sum(six_players[c, s] for c in cubes, s in slots))
 
 # Solve the model
 optimize!(model)
@@ -84,7 +97,7 @@ optimize!(model)
 for slot in slots
     total_cubes = 0
     for cube in cubes
-        if round(value(is_zero[cube, slot])) == 1
+        if round(value(zero_players[cube, slot])) == 1
             continue
         end
         println("\nslot $slot Cube ", cube_names[cube])
