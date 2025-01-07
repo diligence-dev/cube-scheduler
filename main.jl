@@ -4,19 +4,15 @@ using JuMP
 using SCIP
 
 rank_to_score = [100, 70, 50, 10, 5]
-special_player_1 = 26
-special_player_2 = 27
 
 player_mails = lowercase.(readlines("mails"))
-@assert player_mails[special_player_1] == player_mails[special_player_2]
-player_mails[special_player_1] = "special_player_1"
+if length(player_mails) % 2 == 1
+    push!(player_mails, "bye")
+end
 @assert player_mails == unique(player_mails)
 
 preferences = CSV.read("preferences.csv", DataFrame)
 preferences[!, 2] = lowercase.(preferences[!, 2])
-
-preferences = preferences[[1:nrow(preferences); [findfirst(preferences[!, 2] .== player_mails[special_player_2])]], :]
-preferences[nrow(preferences), 2] = "special_player_1"
 @assert preferences[!, 2] == unique(preferences[!, 2])
 
 println("The following mails are not registered:")
@@ -63,6 +59,19 @@ for pmail in preferences[!, 2]
     end
 end
 
+cube_scores = Dict(cube => 0 for cube in cubes)
+
+for p in players
+    for c in cubes
+        cube_scores[c] += score[p, c]
+    end
+end
+sorted_cube_scores = sort(collect(cube_scores), by = x -> -x[2])
+for (cube, score) in sorted_cube_scores
+    println(cube_names[cube], ": ", score)
+end
+
+
 # Create the model
 model = Model(SCIP.Optimizer)
 
@@ -74,15 +83,23 @@ model = Model(SCIP.Optimizer)
 @variable(model, ten_players[c in cubes, s in slots], Bin)
 
 # Define the constraints
+# each cube is played by 0, 6, 8 or 10 players
 @constraint(model, [c in cubes, s in slots], zero_players[c, s] + six_players[c, s] + eight_players[c, s] + ten_players[c, s] == 1)
 @constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in players) == 0 * zero_players[c, s] + 6 * six_players[c, s] + 8 * eight_players[c, s] + 10 * ten_players[c, s])
+
+# each player plays exactly one cube in each slot
 @constraint(model, [p in players, s in slots], sum(pcs[p, c, s] for c in cubes) == 1)
+
+# a player cannot play a cube twice
 @constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
+
+# prevent assigning to cube number 10 as that is reserved for top 8
+# TODO set to the cube that was actually decided for top 8
+@constraint(model, [p in players, s in slots], pcs[p, cid("Casual Champions Cube"), s] == 0)
 
 # prevent two players from ever drafting at the same table
 # TODO check how much worse total score is with this constraint
-@constraint(model, [c in cubes, s in slots], pcs[special_player_1, c, s] + pcs[special_player_2, c, s] <= 1)
-
+# @constraint(model, [c in cubes, s in slots], pcs[special_player_1, c, s] + pcs[special_player_2, c, s] <= 1)
 
 # Define the objective
 @objective(model, Max,
