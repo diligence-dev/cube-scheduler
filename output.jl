@@ -31,3 +31,17 @@ function print_solution(slots, cubes, players, cube_names, player_mails, zero_pl
     # println("Objective value relative: ",
     #         objective_value(model) / nrow(preferences) / sum(rank_to_score[1:length(slots)]))
 end
+
+function print_cube_scores(cubes, players, score, cube_names)
+    cube_scores = Dict(cube => 0 for cube in cubes)
+
+    for p in players
+        for c in cubes
+            cube_scores[c] += score[p, c]
+        end
+    end
+    sorted_cube_scores = sort(collect(cube_scores), by = x -> -x[2])
+    for (cube, score) in sorted_cube_scores
+        println(cube_names[cube], ": ", score)
+    end
+end

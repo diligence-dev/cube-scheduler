@@ -4,6 +4,7 @@ using JuMP
 using SCIP
 
 include("output.jl")
+include("get_score.jl")
 
 rank_to_score = [20, 17, 16, 12, 11]
 # rank_to_score = [5,4,3,2,1]
@@ -53,37 +54,7 @@ slots = 1:3
 cubes = 1:length(cube_names)
 
 # Define the parameters (=scores)
-score = zeros(length(players), length(cubes))
-
-for pmail in preferences[!, 2]
-    p = pid(pmail)
-    picks = [preferences[preferences[!, 2] .== player_mails[p], i][1] for i in 3:7]
-    unique!(picks)
-    filter!(x -> !ismissing(x), picks)
-
-    for i in eachindex(rank_to_score)
-        if i > length(picks)
-            for cube in setdiff(cubes, cid.(picks))
-                score[p, cube] = rank_to_score[i]
-            end
-            break
-        end
-        score[p, cid(picks[i])] = rank_to_score[i]
-    end
-end
-
-cube_scores = Dict(cube => 0 for cube in cubes)
-
-for p in players
-    for c in cubes
-        cube_scores[c] += score[p, c]
-    end
-end
-sorted_cube_scores = sort(collect(cube_scores), by = x -> -x[2])
-for (cube, score) in sorted_cube_scores
-    println(cube_names[cube], ": ", score)
-end
-
+score = get_score(preferences, player_mails, cubes, cid, rank_to_score)
 
 # Create the model
 model = Model(SCIP.Optimizer)
