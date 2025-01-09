@@ -5,17 +5,19 @@ using SCIP
 
 include("output.jl")
 include("get_score.jl")
+include("generate_mails.jl")
 
-rank_to_score = [20, 17, 16, 12, 11] # wish_counts: [35, 28, 25, 9, 10, 0]
-# rank_to_score = [5, 4, 3, 2, 1] # wish_counts: [34, 30, 27, 11, 5, 2]
-# rank_to_score = [10, 9, 7, 4, 2]
-# rank_to_score = [10, 8, 6, 4, 2]
-# rank_to_score = [10^10, 10^8, 10^6, 10^4, 10^2] # wish_counts: [36, 31, 22, 9, 5, 6]
+# rank_to_score = [20, 17, 16, 12, 11] # wish_counts: [36, 37, 32, 6, 8, 0]
+# rank_to_score = [5, 4, 3, 2, 1] # wish_counts: [35, 38, 32, 11, 3, 1]
+# rank_to_score = [10, 9, 7, 4, 2] # wish_counts: [34, 40, 32, 9, 3, 1]
+rank_to_score = [20, 19, 17, 14, 12] # wish_counts: [34, 39, 32, 9, 5, 0]
+# rank_to_score = [10^10, 10^8, 10^6, 10^4, 10^2] # wish_counts: [40, 34, 25, 8, 5, 5]
 
 top8_cube = "???"
 
 registrations = CSV.read("registrations.csv", DataFrame)
 player_mails = lowercase.(registrations[!, 2])
+player_names = registrations[!, 3]
 @assert player_mails == unique(player_mails)
 
 preferences = CSV.read("preferences.csv", DataFrame)
@@ -55,6 +57,7 @@ for casual in casuals
     @assert casual in players
 end
 competitives = setdiff(players, casuals)
+@assert length(competitives) % 2 == 0
 
 slots = 1:3
 cubes = 1:length(cube_names)
@@ -71,15 +74,15 @@ model = Model(SCIP.Optimizer)
 # @variable(model, six_players[c in cubes, s in slots], Bin)
 @variable(model, eight_players[c in cubes, s in slots], Bin)
 # @variable(model, ten_players[c in cubes, s in slots], Bin)
-@variable(model, twelve_casuals[c in cubes, s in slots], Bin)
+@variable(model, all_casuals[c in cubes, s in slots], Bin)
 
 # Define the constraints
 # each cube is played by 0, 6, 8 or 10 players
 # @constraint(model, [c in cubes, s in slots], zero_players[c, s] + six_players[c, s] + eight_players[c, s] + ten_players[c, s] == 1)
-@constraint(model, [c in cubes, s in slots], zero_players[c, s] + eight_players[c, s] + twelve_casuals[c, s] == 1)
+@constraint(model, [c in cubes, s in slots], zero_players[c, s] + eight_players[c, s] + all_casuals[c, s] == 1)
 # @constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in players) == 0 * zero_players[c, s] + 6 * six_players[c, s] + 8 * eight_players[c, s] + 10 * ten_players[c, s])
 @constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in competitives) == 0 * zero_players[c, s] + 8 * eight_players[c, s])
-@constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in casuals) == 0 * zero_players[c, s] + 12 * twelve_casuals[c, s])
+@constraint(model, [c in cubes, s in slots], sum(pcs[p, c, s] for p in casuals) == 0 * zero_players[c, s] + length(casuals) * all_casuals[c, s])
 
 # each player plays exactly one cube in each slot
 @constraint(model, [p in players, s in slots], sum(pcs[p, c, s] for c in cubes) == 1)
@@ -88,7 +91,7 @@ model = Model(SCIP.Optimizer)
 @constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
 
 # prevent assigning to the cube reserved for top 8
-@constraint(model, [p in players, s in slots], pcs[p, cid(top8_cube), s] == 0)
+# @constraint(model, [p in players, s in slots], pcs[p, cid(top8_cube), s] == 0)
 
 # prevent two players from ever drafting at the same table
 # @constraint(model, [c in cubes, s in slots], pcs[special_player_1, c, s] + pcs[special_player_2, c, s] <= 1)
@@ -107,6 +110,8 @@ if termination_status(model) != MOI.OPTIMAL
     throw("No solution found")
 end
 
-print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs, model)
+print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs)
 
 print_wish_counts(preferences, pid, slots, cubes, pcs, cube_names, competitives)
+
+write_mailto_html(slots, cubes, players, cube_names, player_mails, pcs, top8_cube, player_names)
