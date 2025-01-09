@@ -10,7 +10,7 @@ function print_solution(slots, cubes, players, cube_names, player_mails, zero_pl
             total = 0
             for player in players
                 if round(value(pcs[player, cube, slot])) == 1
-                    println("Player ", player_mails[player])
+                    println(player_mails[player])
                     total += 1
                 end
             end

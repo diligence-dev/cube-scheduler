@@ -6,17 +6,16 @@ using SCIP
 include("output.jl")
 include("get_score.jl")
 
-rank_to_score = [20, 17, 16, 12, 11]
+rank_to_score = [20, 17, 16, 12, 11] # wish_counts: [35, 28, 25, 9, 10, 0]
 # rank_to_score = [5, 4, 3, 2, 1] # wish_counts: [34, 30, 27, 11, 5, 2]
 # rank_to_score = [10, 9, 7, 4, 2]
 # rank_to_score = [10, 8, 6, 4, 2]
+# rank_to_score = [10^10, 10^8, 10^6, 10^4, 10^2] # wish_counts: [36, 31, 22, 9, 5, 6]
 
 top8_cube = "???"
 
-player_mails = lowercase.(readlines("mails"))
-if length(player_mails) % 2 == 1
-    push!(player_mails, "bye")
-end
+registrations = CSV.read("registrations.csv", DataFrame)
+player_mails = lowercase.(registrations[!, 2])
 @assert player_mails == unique(player_mails)
 
 preferences = CSV.read("preferences.csv", DataFrame)
@@ -108,6 +107,6 @@ if termination_status(model) != MOI.OPTIMAL
     throw("No solution found")
 end
 
-# print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs, model)
+print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs, model)
 
 print_wish_counts(preferences, pid, slots, cubes, pcs, cube_names, competitives)
