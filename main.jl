@@ -90,8 +90,13 @@ model = Model(SCIP.Optimizer)
 # a player cannot play a cube twice
 @constraint(model, [p in players, c in cubes], sum(pcs[p, c, s] for s in slots) <= 1)
 
+# a cube cannot be played in slot 1 and 2 (both on Saturday)
+@constraint(model, [c in cubes], zero_players[c, 1] + zero_players[c, 2] >= 1)
+
 # prevent assigning to the cube reserved for top 8
-# @constraint(model, [p in players, s in slots], pcs[p, cid(top8_cube), s] == 0)
+if top8_cube in cube_names
+    @constraint(model, [p in players, s in slots], pcs[p, cid(top8_cube), s] == 0)
+end
 
 # prevent two players from ever drafting at the same table
 # @constraint(model, [c in cubes, s in slots], pcs[special_player_1, c, s] + pcs[special_player_2, c, s] <= 1)

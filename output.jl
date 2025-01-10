@@ -1,23 +1,26 @@
-function print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs)
+function print_solution(slots, cubes, players, cube_names, player_mails, zero_players, pcs, print_players = true)
+    unique_cubes = Set()
     for slot in slots
-        println("\nSlot $slot --------------")
-        total_cubes = 0
+        println("\nSlot $slot -------------------------------")
         for cube in cubes
             if round(value(zero_players[cube, slot])) == 1
                 continue
             end
-            println("\n", cube_names[cube])
-            total = 0
-            for player in players
-                if round(value(pcs[player, cube, slot])) == 1
-                    println(player_mails[player])
-                    total += 1
+            push!(unique_cubes, cube_names[cube])
+            println(cube_names[cube])
+            if print_players
+                n_players = 0
+                for player in players
+                    if round(value(pcs[player, cube, slot])) == 1
+                        println(player_mails[player])
+                        n_players += 1
+                    end
                 end
+                println("n_players = $n_players\n")
             end
-            println("total = $total")
-            total_cubes += 1
         end
     end
+    println("\nnumber of unique cubes: ", length(unique_cubes))
 end
 
 function print_cube_scores(cubes, players, score, cube_names)
