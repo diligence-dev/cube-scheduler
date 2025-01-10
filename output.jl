@@ -37,7 +37,7 @@ function print_cube_scores(cubes, players, score, cube_names)
     end
 end
 
-function print_wish_counts(preferences, pid, slots, cubes, pcs, cube_names, competitives)
+function print_wish_counts(preferences, pid, slots, cubes, pcs, cube_names)
     println("rank_to_score: ", rank_to_score)
     wish_counts = zeros(Int, 6)
 
@@ -54,7 +54,7 @@ function print_wish_counts(preferences, pid, slots, cubes, pcs, cube_names, comp
                             wish_granted = true
                         end
                     end
-                    if !wish_granted && !ismissing(preferences[i, 7]) && p in competitives
+                    if !wish_granted && !ismissing(preferences[i, 7])
                         println(player_mail, " got ", cube_names[c], " but did not want it")
                         wish_counts[6] += 1
                     end
